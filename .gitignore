@@ -192,3 +192,26 @@ cython_debug/
 #  refer to https://docs.cursor.com/context/ignore-files
 .cursorignore
 .cursorindexingignore
+
+
+
+/venv
+*.pkl
+*.csv
+*.yaml
+/wandb
+/mlartifacts
+/plugins
+/mlruns
+
+.idea/
+/model.joblib
+/model.pkl
+wandb/
+
+*.pkl 
+credentials.json
+mc.exe
+
+
+/data
