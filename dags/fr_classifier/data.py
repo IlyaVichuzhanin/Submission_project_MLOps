@@ -4,12 +4,66 @@ import pandas as pd
 from sklearn.model_selection import train_test_split
 import subprocess
 import os
+import logging
 
 
 def load_data():
 
-    os.chdir("./")
-    subprocess.run(["dvc", "pull"], capture_output=True, text=True)
+    # os.chdir("./")
+    # subprocess.run(["sudo dvc", "pull"], capture_output=True, text=True)
+
+    logger = logging.getLogger(__name__)
+    
+    # Проверка текущей директории
+    current_dir = os.getcwd()
+    logger.info(f"Current directory: {current_dir}")
+    
+    try:
+        # Проверка PATH
+        path = os.environ.get("PATH")
+        logger.info(f"PATH: {path}")
+        
+        # Проверка наличия dvc в PATH
+        result = subprocess.run(
+            ["which", "dvc"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        logger.info(f"dvc found at: {result.stdout.strip()}")
+        
+        # Выполнение dvc pull
+        result = subprocess.run(
+            ["dvc", "pull"],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        
+        logger.info("dvc pull completed successfully.")
+        logger.debug(f"Output: {result.stdout}")
+        logger.debug(f"Errors: {result.stderr}")
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Command failed with error: {e}")
+        logger.error(f"Output: {e.output}")
+        logger.error(f"Errors: {e.stderr}")
+        raise
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     
 
 

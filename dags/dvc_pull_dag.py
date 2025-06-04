@@ -18,8 +18,9 @@ with DAG(
 
     dvc_pull_task = DockerOperator(
         task_id='run_dvc_pull',
-        image='my-dvc-image:latest',  # The image built earlier
+        image='my_custom_image',  # The image built earlier
         api_version='auto',
+        docker_url="unix://var/run/docker.sock",  # Needed if Airflow is in Docker
         command="dvc pull",
         mounts=[],  # Add volumes if needed for persistence
         environment={

@@ -198,7 +198,7 @@ cython_debug/
 /venv
 *.pkl
 *.csv
-*.yaml
+
 /wandb
 /mlartifacts
 /plugins
