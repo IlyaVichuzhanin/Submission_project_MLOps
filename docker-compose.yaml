@@ -49,8 +49,8 @@ x-airflow-common:
   # In order to add custom dependencies or upgrade provider distributions you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.0.0}
-  # build: .
+  # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:3.0.0}
+  build: .
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
@@ -73,12 +73,16 @@ x-airflow-common:
     # The following line can be used to set a custom config file, stored in the local config folder
     AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
   volumes:
+    - shared_data:/opt/airflow/shared_data
     - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
     - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
     - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
     - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
     - ${AIRFLOW_PROJ_DIR:-.}/data:/opt/airflow/data
     - ${AIRFLOW_PROJ_DIR:-.}/.dvc:/opt/airflow/.dvc
+    - ${AIRFLOW_PROJ_DIR:-.}/model:/opt/airflow/model
+    - ${AIRFLOW_PROJ_DIR:-.}/app:/opt/airflow/app
+    - ${AIRFLOW_PROJ_DIR:-.}/model_storage:/app/model_storage
     
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
@@ -87,6 +91,8 @@ x-airflow-common:
       condition: service_healthy
     postgres:
       condition: service_healthy
+  networks:
+    - myml-network
 
 services:
   postgres:
@@ -97,12 +103,15 @@ services:
       POSTGRES_DB: airflow
     volumes:
       - postgres-db-volume:/var/lib/postgresql/data
+      - shared_data:/shared_data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "airflow"]
       interval: 10s
       retries: 5
       start_period: 5s
     restart: always
+    networks:
+      - myml-network
 
   redis:
     # Redis is limited to 7.2-bookworm due to licencing change
@@ -117,6 +126,10 @@ services:
       retries: 50
       start_period: 30s
     restart: always
+    volumes:
+      - shared_data:/shared_data
+    networks:
+      - myml-network
 
   airflow-apiserver:
     <<: *airflow-common
@@ -134,6 +147,8 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+    networks:
+      - myml-network
 
   airflow-scheduler:
     <<: *airflow-common
@@ -149,6 +164,8 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+    networks:
+      - myml-network
 
   airflow-dag-processor:
     <<: *airflow-common
@@ -164,6 +181,8 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+    networks:
+      - myml-network
 
   airflow-worker:
     <<: *airflow-common
@@ -189,6 +208,8 @@ services:
         condition: service_healthy
       airflow-init:
         condition: service_completed_successfully
+    networks:
+      - myml-network
 
   airflow-triggerer:
     <<: *airflow-common
@@ -204,6 +225,8 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+    networks:
+      - myml-network
 
   airflow-init:
     <<: *airflow-common
@@ -311,6 +334,8 @@ services:
       - airflow
     depends_on:
       <<: *airflow-common-depends-on
+    networks:
+      - myml-network
 
   # You can enable flower by adding "--profile flower" option e.g. docker-compose --profile flower up
   # or by explicitly targeted on the command line e.g. docker-compose up flower.
@@ -333,6 +358,30 @@ services:
       <<: *airflow-common-depends-on
       airflow-init:
         condition: service_completed_successfully
+    networks:
+      - myml-network
+
+  app:
+    build: ./app/
+    image: wine-detection-service:latest
+    container_name: wine-detection-service-container-app
+    command: uvicorn api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    volumes:
+      - ./app:/app
+      - shared_data:/app/shared_data
+    networks:
+      - myml-network
+
 
 volumes:
   postgres-db-volume:
+  shared_data:
+  model_storage:
+
+networks:
+  myml-network:
+    name: myml-network
+    driver: bridge
